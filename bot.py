@@ -566,6 +566,7 @@ async def user_stats(query, context):
 └ 📊 Daraja: *{user_data.get('rank', 'beginner').capitalize()}*
 
 🏆 *Keyingi qur'a:* {bot.config['next_draw_date']}
+"""
     
     keyboard = [
         [
@@ -579,7 +580,7 @@ async def user_stats(query, context):
     await query.edit_message_text(stats_text, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def user_profile(query, context):
-    '👤 Foydalanuvchi profili'
+    """👤 Foydalanuvchi profili"""
     user_id = str(query.from_user.id)
     user_data = bot.data['users'].get(user_id, {})
     
@@ -592,8 +593,8 @@ async def user_profile(query, context):
         'legend': '🔥'
     }
     
-    profile_text = f"
-  *SHASSIY PROFIL*
+    profile_text = f"""
+👤 *SHASSIY PROFIL*
 
 {rank_emojis.get(user_data.get('rank', 'beginner'), '👤')} *{user_data.get('full_name', query.from_user.first_name)}*
 
@@ -616,7 +617,7 @@ async def user_profile(query, context):
 ├ 👥 Ko'rishlar: {user_data.get('profile_views', 0)} marta
 ├ 🔥 Streak: {user_data.get('daily_streak', 0)} kun
 └ 🏆 Yutuqlar: {len(user_data.get('achievements', []))} ta
-"
+"""
     
     keyboard = [
         [
@@ -1499,7 +1500,7 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 # 🏃‍♂️ ASOSIY FUNKSIYA
 def main():
     """🚀 Asosiy funksiya"""
-    TOKEN = "8366431363:AAEdZ2uX0dC6LflUhx8sgyciPuSJMHzL4d4"
+    TOKEN = "7321012980:AAFoMhRMMLXdInH1e3WLowY7KgZrMDe-0Ks"
     
     # Botni yaratish
     application = Application.builder().token(TOKEN).build()
@@ -1538,8 +1539,4 @@ def main():
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
-
     main()
-
-
-
