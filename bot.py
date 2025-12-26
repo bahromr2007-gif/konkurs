@@ -579,7 +579,7 @@ async def user_stats(query, context):
     await query.edit_message_text(stats_text, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def user_profile(query, context):
-    """👤 Foydalanuvchi profili"""
+    '👤 Foydalanuvchi profili'
     user_id = str(query.from_user.id)
     user_data = bot.data['users'].get(user_id, {})
     
@@ -1540,3 +1540,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
