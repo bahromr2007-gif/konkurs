@@ -1385,7 +1385,7 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 
 def main():
     """🚀 Main"""
-    TOKEN = "8366431363:AAEdZ2uX0dC6LflUhx8sgyciPuSJMHzL4d4"
+    TOKEN = "7321012980:AAFoMhRMMLXdInH1e3WLowY7KgZrMDe-0Ks"
     
     application = Application.builder().token(TOKEN).build()
     
@@ -1419,3 +1419,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
