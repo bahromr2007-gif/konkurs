@@ -592,7 +592,7 @@ async def user_profile(query, context):
         'legend': '🔥'
     }
     
-    profile_text = f"""
+    profile_text = f"
   *SHASSIY PROFIL*
 
 {rank_emojis.get(user_data.get('rank', 'beginner'), '👤')} *{user_data.get('full_name', query.from_user.first_name)}*
@@ -616,7 +616,7 @@ async def user_profile(query, context):
 ├ 👥 Ko'rishlar: {user_data.get('profile_views', 0)} marta
 ├ 🔥 Streak: {user_data.get('daily_streak', 0)} kun
 └ 🏆 Yutuqlar: {len(user_data.get('achievements', []))} ta
-"""
+"
     
     keyboard = [
         [
@@ -1540,5 +1540,6 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
