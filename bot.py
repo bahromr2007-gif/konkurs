@@ -566,7 +566,6 @@ async def user_stats(query, context):
 └ 📊 Daraja: *{user_data.get('rank', 'beginner').capitalize()}*
 
 🏆 *Keyingi qur'a:* {bot.config['next_draw_date']}
-"""
     
     keyboard = [
         [
@@ -1539,4 +1538,5 @@ def main():
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
+
     main()
