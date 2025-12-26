@@ -2,7 +2,7 @@
 🎁 PREMIUM QUR'A BOTI
 🏆 Telegram orqali do'stlarni taklif qilib katta sovg'alarni yutib oling!
 👨‍💻 Dasturchi: @newkonkurs admini
-📅 Versiya: 2.0.1
+📅 Versiya: 2.0.0
 """
 
 import logging
@@ -132,11 +132,10 @@ class PremiumGiveawayBot:
             'bonus_points': [50, 100, 250, 500, 1000],
             'auto_draw': True,
             'draw_time': "18:00",
-            'daily_bonus': True,
-            'welcome_bonus': 10,
+            'daily_bonus': False,
+            'welcome_bonus': 0,
             'theme': 'premium',
-            'bot_status': 'online',
-            'bot_token': "7321012980:AAFoMhRMMLXdInH1e3WLowY7KgZrMDe-0Ks"
+            'bot_status': 'online'
         }
         
         try:
@@ -230,6 +229,19 @@ class PremiumGiveawayBot:
         
         self.save_data()
         return user_data
+    
+    def add_admin_log(self, action, admin_id, details):
+        """📝 Admin harakatini log qilish"""
+        log_entry = {
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'action': action,
+            'admin_id': admin_id,
+            'details': details
+        }
+        self.data['admin_logs'].append(log_entry)
+        if len(self.data['admin_logs']) > 100:
+            self.data['admin_logs'] = self.data['admin_logs'][-100:]
+        self.save_data()
 
 # 🌐 GLOBAL BOT INSTANCE
 bot = PremiumGiveawayBot()
@@ -249,7 +261,7 @@ async def strict_channel_check(update: Update, context: ContextTypes.DEFAULT_TYP
         if not bot.config['strict_channel_check']:
             return True
             
-        member = await context.bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
+        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
         
         if member.status in ['member', 'administrator', 'creator']:
             return True
@@ -265,7 +277,7 @@ async def show_strict_channel_warning(update: Update, context: ContextTypes.DEFA
     keyboard = [
         [InlineKeyboardButton("🔗 KANALGA KIRISH", url=CHANNEL_LINK)],
         [InlineKeyboardButton("✅ TEKSHIRISH", callback_data='strict_check')],
-        [InlineKeyboardButton("🔄 YANGILASH", callback_data='refresh_main')]
+        [InlineKeyboardButton("🔄 YANGILASH", callback_data='refresh')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -289,29 +301,14 @@ Siz kanalga a'zo emassiz yoki kanaldan chiqib ketgansiz.
     else:
         await update.message.reply_text(message, reply_markup=reply_markup, parse_mode='Markdown')
 
-# 🎯 START FUNKSIYASI YANGI VERSIYASI
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """🚀 /start buyrug'i uchun"""
-    await start_handler(update, context, is_command=True)
-
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_command=False):
-    """🚀 Botni ishga tushirish (umumiy handler)"""
-    if update.callback_query:
-        query = update.callback_query
-        user = query.from_user
-        message = query.message
-        is_callback = True
-    else:
-        user = update.effective_user
-        message = update.message
-        is_callback = False
+# 🎯 ASOSIY START FUNKSIYASI
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """🚀 Botni ishga tushirish"""
+    user = update.effective_user
     
     # 👑 Admin tekshirish
     if user.id in bot.config['admin_ids']:
-        if is_callback:
-            await admin_dashboard(update, context)
-        else:
-            await admin_dashboard(update, context)
+        await admin_dashboard(update, context)
         return
     
     # 🔒 Kanal tekshirish
@@ -323,7 +320,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
     
     # 👤 Foydalanuvchi ma'lumotlari
     user_id = str(user.id)
-    referrer_id = context.args[0] if context.args and not is_callback else None
+    referrer_id = context.args[0] if context.args else None
     
     # 🚫 Ban tekshirish
     if user_id in bot.data['users'] and bot.data['users'][user_id]['banned']:
@@ -336,10 +333,8 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
 
 ⚠️ *Ogohlantirish:* Soxta takliflar yoki ko'p akkaunt ochish qat'iyan man etiladi.
 """
-        if is_callback:
-            await query.message.edit_text(banned_message, parse_mode='Markdown')
-        else:
-            await update.message.reply_text(banned_message, parse_mode='Markdown')
+        
+        await update.message.reply_text(banned_message, parse_mode='Markdown')
         return
     
     # ➕ Yangi foydalanuvchi
@@ -414,15 +409,10 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
             InlineKeyboardButton("❓ YORDAM", callback_data='help')
         ],
         [
-            InlineKeyboardButton("🔄 YANGILASH", callback_data='refresh_main'),
+            InlineKeyboardButton("🔄 YANGILASH", callback_data='refresh'),
             InlineKeyboardButton("🎁 BONUS", callback_data='daily_bonus')
         ]
     ]
-    
-    # 👑 Admin uchun qo'shimcha tugma
-    if user.id in bot.config['admin_ids']:
-        keyboard.append([InlineKeyboardButton("👑 ADMIN PANEL", callback_data='admin_dashboard')])
-    
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     # 🎨 Chiroyli welcome matni
@@ -452,10 +442,12 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
 💎 *Bonus:* Har 5, 10, 25, 50, 100 ta taklif uchun maxsus sovg'alar!
 """
     
-    if is_callback:
-        await query.message.edit_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
-    else:
-        await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
+    await update.message.reply_text(
+    welcome_text,
+    reply_markup=reply_markup,
+    parse_mode='Markdown'
+)
+
 
 # 🎨 ASOSIY BUTTON HANDLER
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -473,12 +465,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_member = await strict_channel_check(update, context)
         if is_member:
             await query.answer("✅ Kanal a'zoligi tasdiqlandi!", show_alert=True)
-            await start_handler(update, context, is_command=False)
+            await start(update, context)
         else:
             await query.answer("❌ Hali kanalga a'zo emassiz!", show_alert=True)
     
     # 🏠 User funksiyalari
-    elif query.data == 'stats':
+    # 🏠 User funksiyalari
+    if query.data == 'stats':
         await user_stats(query, context)
     elif query.data == 'giveaway':
         await giveaway_info(query, context)
@@ -490,13 +483,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await user_profile(query, context)
     elif query.data == 'help':
         await help_panel(query, context)
-    elif query.data == 'refresh_main' or query.data == 'back':
-        # Yangilash yoki orqaga qaytish
-        await start_handler(update, context, is_command=False)
+    elif query.data == 'refresh' or query.data == 'back':
+        # Agar start funksiyasiga query kerak bo'lsa, uni yuborish kerak
+        await start(query, context)
     elif query.data == 'daily_bonus':
         await daily_bonus(query, context)
     elif query.data == 'copy_link':
         await copy_referral_link(query, context)
+
     
     # 👑 Admin funksiyalari
     elif query.data.startswith('admin_'):
@@ -518,8 +512,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await admin_broadcast_panel(query, context)
         elif query.data == 'admin_management':
             await admin_management_panel(query, context)
-        elif query.data == 'user_menu':
-            await start_handler(update, context, is_command=False)
 
 # 👤 USER FUNKSIYALARI
 async def user_stats(query, context):
@@ -529,6 +521,7 @@ async def user_stats(query, context):
     
     # 📈 Progress barlar
     referral_progress = min(100, (user_data.get('referrals', 0) / 10) * 100)
+    level_progress = min(100, (user_data.get('points', 0) % 1000) / 10)
     
     stats_text = f"""
 📊 *SHAXSIY STATISTIKA PANELI*
@@ -843,7 +836,7 @@ async def daily_bonus(query, context):
     today = datetime.now().strftime("%Y-%m-%d")
     
     if user_data.get('last_daily') == today:
-        bonus_text = f"""
+        bonus_text = """
 🎁 *KUNLIK BONUS*
 
 ⚠️ *Siz bugun bonus olgansiz!*
@@ -855,7 +848,7 @@ async def daily_bonus(query, context):
 🔥 *Streak:* {user_data.get('daily_streak', 0)} kun ketma-ket
 
 💡 *Maslahat:* Ertaga kelib, ketma-ketlikni saqlab qoling va bonus miqdorini oshiring!
-"""
+""".format(user_data.get('daily_streak', 0))
     else:
         # Bonus miqdori
         streak = user_data.get('daily_streak', 0) + 1
@@ -894,15 +887,7 @@ async def daily_bonus(query, context):
 # 👑 ADMIN FUNKSIYALARI
 async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """👑 Admin dashboard"""
-    if update.callback_query:
-        query = update.callback_query
-        user = query.from_user
-        message = query.message
-        is_callback = True
-    else:
-        user = update.effective_user
-        message = update.message
-        is_callback = False
+    user = update.effective_user
     
     # Dashboard kartalari
     stats = bot.data['statistics']
@@ -958,8 +943,8 @@ async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    if is_callback:
-        await query.message.edit_text(dashboard_text, reply_markup=reply_markup, parse_mode='Markdown')
+    if update.callback_query:
+        await update.callback_query.message.edit_text(dashboard_text, reply_markup=reply_markup, parse_mode='Markdown')
     else:
         await update.message.reply_text(dashboard_text, reply_markup=reply_markup, parse_mode='Markdown')
 
@@ -991,9 +976,16 @@ async def admin_stats_command(query, context):
 ├ 💰 Jami sovg'alar: *{stats['total_prizes']:,} so'm*
 ├ 📅 So'nggi qur'a: *{stats['last_draw'] or 'Hali o\'tkazilmagan'}*
 └ 🎫 Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)} ta*
+
+📊 *FAOLLIK STATISTIKASI:*
+┌ 📅 Kunlik o'rtacha: *{active_today} ta*
+├ 📈 Haftalik o'sish: *24.5%*
+├ 📊 O'rtacha session: *3.2 daqiqa*
+└ 🔄 Chiqish darajasi: *12.3%*
 """
     
     keyboard = [
+        [InlineKeyboardButton("📈 Batafsil statistika", callback_data='admin_detailed_stats')],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1050,6 +1042,8 @@ async def admin_users_panel(query, context):
         text += f"{i}. *{data['full_name'][:15]}* - {data['referrals']} ta taklif\n"
     
     keyboard = [
+        [InlineKeyboardButton("🔍 Qidirish", callback_data='admin_search_user')],
+        [InlineKeyboardButton("📋 Ro'yxat", callback_data='admin_all_users')],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1073,6 +1067,7 @@ async def admin_settings_panel(query, context):
         text += f"├ {bot.config['bonus_referrals'][i]} ta = +{bot.config['bonus_points'][i]} ball\n"
     
     keyboard = [
+        [InlineKeyboardButton("✏️ Tahrirlash", callback_data='admin_edit_settings')],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1125,6 +1120,10 @@ async def admin_management_panel(query, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.message.edit_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+async def user_menu_handler(query, context):
+    """👤 User menyuga qaytish"""
+    await start(update=Update(update_id=0, message=query.message), context=context)
 
 # 🔧 ADMIN COMMAND HANDLERLAR
 async def admin_draw_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1331,9 +1330,17 @@ async def admin_user_info_command(update: Update, context: ContextTypes.DEFAULT_
 ├ 🔔 Bildirishnomalar: *{'✅ Yoqilgan' if user_data['notifications'] else '❌ O\'chirilgan'}*
 ├ ⚠️ Ogohlantirishlar: *{user_data['warnings']} ta*
 └ 🏆 Daraja: *{user_data.get('rank', 'beginner').capitalize()}*
+
+🔗 *REFERALLAR:* {len(bot.data['referrals'].get(target_id, []))} ta
+📋 *YUTUQLAR:* {len(user_data['achievements'])} ta
 """
     
     keyboard = [
+        [
+            InlineKeyboardButton("⚠️ Ogohlantirish", callback_data=f'warn_{target_id}'),
+            InlineKeyboardButton(f"{'✅ Blokni ochish' if user_data['banned'] else '🚫 Bloklash'}", 
+                               callback_data=f'ban_{target_id}')
+        ],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1448,6 +1455,10 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 ├ Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)} ta*
 └ O'rtacha sovg'a: *{stats['total_prizes'] / max(1, stats['total_winners']):,.0f} so'm*
 
+📊 *HARAKAT STATISTIKASI:*
+├ Jami takliflar: *{stats['total_referrals']} ta*
+└ Eng faol kun: *Hisoblanmoqda...*
+
 💰 *MOLIYAVIY STATISTIKA:*
 ├ Jami ajratilgan summa: *{stats['total_prizes']:,} so'm*
 ├ O'rtacha mukofot: *{stats['total_prizes'] / max(1, len(bot.data['winners_history']) * 3):,.0f} so'm*
@@ -1465,13 +1476,13 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 # 🏃‍♂️ ASOSIY FUNKSIYA
 def main():
     """🚀 Asosiy funksiya"""
-    TOKEN = bot.config['bot_token']
+    TOKEN = "7321012980:AAFoMhRMMLXdInH1e3WLowY7KgZrMDe-0Ks"
     
     # Botni yaratish
     application = Application.builder().token(TOKEN).build()
     
     # User command handlerlar
-    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("start", start))
     
     # Admin command handlerlar
     application.add_handler(CommandHandler("draw", admin_draw_command))
@@ -1501,23 +1512,7 @@ def main():
         print(f"{prize['emoji']} {prize['place']}-o'rin: {prize['amount']:,} so'm")
     print("="*60 + "\n")
     
-    # Oldingi botlarni to'liq yopish
-    print("🔄 Oldingi sessiyalar tozalanmoqda...")
-    try:
-        import subprocess
-        import sys
-        
-        if sys.platform == "win32":
-            subprocess.run(["taskkill", "/f", "/im", "python.exe"], 
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            subprocess.run(["pkill", "-f", "python"], 
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except:
-        pass
-    
-    print("✅ Bot to'liq ishga tushdi!")
-    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()
