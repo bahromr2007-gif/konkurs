@@ -973,31 +973,35 @@ async def admin_stats_command(query, context):
     active_today = len([u for u in bot.data['users'].values() 
                        if datetime.now().strftime("%Y-%m-%d") in u.get('last_active', '')])
     
-    admin_stats = f"""📈 *BOTNING TO'LIQ STATISTIKASI*
-
-👥 *FOYDALANUVCHILAR:*
-┌ 📊 Jami ro'yxatdan o'tgan: *{stats['total_users']} ta*
-├ ✅ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u.get('banned', False))} ta*
-├ ❌ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u.get('banned', False))} ta*
-└ 🔥 Bugun faol: *{active_today} ta*
-
-🎯 *TAKLIFLAR:*
-┌ 📈 Jami takliflar: *{stats['total_referrals']} ta*
-├ ⭐ Eng ko'p taklif: *{max((u.get('referrals', 0) for u in bot.data['users'].values()), default=0)} ta*
-├ 📊 O'rtacha taklif: *{stats['total_referrals']/max(1, stats['total_users']):.1f} ta*
-└ 🎯 Minimal talab: *{bot.config['min_referrals']} ta*
-
-🏆 *QUR'A NATIJALARI:*
-┌ 🎊 Jami g'oliblar: *{stats['total_winners']} ta*
-├ 💰 Jami sovg'alar: *{stats['total_prizes']:,} so'm*
-├ 📅 So'nggi qur'a: *{stats['last_draw'] or 'Hali o\'tkazilmagan'}*
-└ 🎫 Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)} ta*
-
-📊 *FAOLLIK STATISTIKASI:*
-┌ 📅 Kunlik o'rtacha: *{active_today} ta*
-├ 📈 Haftalik o'sish: *24.5%*
-├ 📊 O'rtacha session: *3.2 daqiqa*
-└ 🔄 Chiqish darajasi: *12.3%*"""
+    # Alohida qismlarga bo'lib yaratish
+    admin_stats_parts = []
+    admin_stats_parts.append("📈 *BOTNING TO'LIQ STATISTIKASI*")
+    admin_stats_parts.append("")
+    admin_stats_parts.append("👥 *FOYDALANUVCHILAR:*")
+    admin_stats_parts.append(f"┌ 📊 Jami ro'yxatdan o'tgan: *{stats['total_users']} ta*")
+    admin_stats_parts.append(f"├ ✅ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u.get('banned', False))} ta*")
+    admin_stats_parts.append(f"├ ❌ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u.get('banned', False))} ta*")
+    admin_stats_parts.append(f"└ 🔥 Bugun faol: *{active_today} ta*")
+    admin_stats_parts.append("")
+    admin_stats_parts.append("🎯 *TAKLIFLAR:*")
+    admin_stats_parts.append(f"┌ 📈 Jami takliflar: *{stats['total_referrals']} ta*")
+    admin_stats_parts.append(f"├ ⭐ Eng ko'p taklif: *{max((u.get('referrals', 0) for u in bot.data['users'].values()), default=0)} ta*")
+    admin_stats_parts.append(f"├ 📊 O'rtacha taklif: *{stats['total_referrals']/max(1, stats['total_users']):.1f} ta*")
+    admin_stats_parts.append(f"└ 🎯 Minimal talab: *{bot.config['min_referrals']} ta*")
+    admin_stats_parts.append("")
+    admin_stats_parts.append("🏆 *QUR'A NATIJALARI:*")
+    admin_stats_parts.append(f"┌ 🎊 Jami g'oliblar: *{stats['total_winners']} ta*")
+    admin_stats_parts.append(f"├ 💰 Jami sovg'alar: *{stats['total_prizes']:,} so'm*")
+    admin_stats_parts.append(f"├ 📅 So'nggi qur'a: *{stats['last_draw'] or 'Hali o\\'tkazilmagan'}*")
+    admin_stats_parts.append(f"└ 🎫 Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)} ta*")
+    admin_stats_parts.append("")
+    admin_stats_parts.append("📊 *FAOLLIK STATISTIKASI:*")
+    admin_stats_parts.append(f"┌ 📅 Kunlik o'rtacha: *{active_today} ta*")
+    admin_stats_parts.append("├ 📈 Haftalik o'sish: *24.5%*")
+    admin_stats_parts.append("├ 📊 O'rtacha session: *3.2 daqiqa*")
+    admin_stats_parts.append("└ 🔄 Chiqish darajasi: *12.3%*")
+    
+    admin_stats = "\n".join(admin_stats_parts)
     
     keyboard = [
         [InlineKeyboardButton("📈 Batafsil statistika", callback_data='admin_detailed_stats')],
@@ -1426,38 +1430,42 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
     
     stats = bot.data['statistics']
     
-    full_stats = f"""📈 *TO'LIQ STATISTIKA HISOBOTI*
-
-📅 *Hisobot sanasi:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-👥 *FOYDALANUVCHI STATISTIKASI:*
-├ Jami ro'yxatdan o'tganlar: *{stats['total_users']} ta*
-├ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u.get('banned', False))} ta*
-├ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u.get('banned', False))} ta*
-├ O'rtacha takliflar: *{stats['total_referrals'] / max(1, stats['total_users']):.1f} ta*
-└ Eng ko'p taklif: *{max((u.get('referrals', 0) for u in bot.data['users'].values()), default=0)} ta*
-
-🏆 *QUR'A STATISTIKASI:*
-├ Jami g'oliblar: *{stats['total_winners']} ta*
-├ Jami sovg'alar: *{stats['total_prizes']:,} so'm*
-├ So'nggi qur'a: *{stats['last_draw'] or 'Hali o\'tkazilmagan'}*
-├ Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)} ta*
-└ O'rtacha sovg'a: *{stats['total_prizes'] / max(1, stats['total_winners']):,.0f} so'm*
-
-📊 *HARAKAT STATISTIKASI:*
-├ Jami takliflar: *{stats['total_referrals']} ta*
-└ Eng faol kun: *Hisoblanmoqda...*
-
-💰 *MOLIYAVIY STATISTIKA:*
-├ Jami ajratilgan summa: *{stats['total_prizes']:,} so'm*
-├ O'rtacha mukofot: *{stats['total_prizes'] / max(1, len(bot.data['winners_history']) * 3):,.0f} so'm*
-├ Eng katta mukofot: *30,000,000 so'm*
-└ Eng kichik mukofot: *8,000,000 so'm*
-
-⚡ *SISTEMA STATISTIKASI:*
-├ Ma'lumotlar bazasi: *{len(bot.data['users'])} ta foydalanuvchi*
-├ Log fayllari: *{len(bot.data['admin_logs'])} ta*
-└ G'oliblar tarixi: *{len(bot.data['winners_history'])} ta*"""
+    # Alohida qismlarga bo'lib yaratish
+    full_stats_parts = []
+    full_stats_parts.append("📈 *TO'LIQ STATISTIKA HISOBOTI*")
+    full_stats_parts.append("")
+    full_stats_parts.append(f"📅 *Hisobot sanasi:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    full_stats_parts.append("")
+    full_stats_parts.append("👥 *FOYDALANUVCHI STATISTIKASI:*")
+    full_stats_parts.append(f"├ Jami ro'yxatdan o'tganlar: *{stats['total_users']} ta*")
+    full_stats_parts.append(f"├ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u.get('banned', False))} ta*")
+    full_stats_parts.append(f"├ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u.get('banned', False))} ta*")
+    full_stats_parts.append(f"├ O'rtacha takliflar: *{stats['total_referrals'] / max(1, stats['total_users']):.1f} ta*")
+    full_stats_parts.append(f"└ Eng ko'p taklif: *{max((u.get('referrals', 0) for u in bot.data['users'].values()), default=0)} ta*")
+    full_stats_parts.append("")
+    full_stats_parts.append("🏆 *QUR'A STATISTIKASI:*")
+    full_stats_parts.append(f"├ Jami g'oliblar: *{stats['total_winners']} ta*")
+    full_stats_parts.append(f"├ Jami sovg'alar: *{stats['total_prizes']:,} so'm*")
+    full_stats_parts.append(f"├ So'nggi qur'a: *{stats['last_draw'] or 'Hali o\\'tkazilmagan'}*")
+    full_stats_parts.append(f"├ Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)} ta*")
+    full_stats_parts.append(f"└ O'rtacha sovg'a: *{stats['total_prizes'] / max(1, stats['total_winners']):,.0f} so'm*")
+    full_stats_parts.append("")
+    full_stats_parts.append("📊 *HARAKAT STATISTIKASI:*")
+    full_stats_parts.append(f"├ Jami takliflar: *{stats['total_referrals']} ta*")
+    full_stats_parts.append("└ Eng faol kun: *Hisoblanmoqda...*")
+    full_stats_parts.append("")
+    full_stats_parts.append("💰 *MOLIYAVIY STATISTIKA:*")
+    full_stats_parts.append(f"├ Jami ajratilgan summa: *{stats['total_prizes']:,} so'm*")
+    full_stats_parts.append(f"├ O'rtacha mukofot: *{stats['total_prizes'] / max(1, len(bot.data['winners_history']) * 3):,.0f} so'm*")
+    full_stats_parts.append("├ Eng katta mukofot: *30,000,000 so'm*")
+    full_stats_parts.append("└ Eng kichik mukofot: *8,000,000 so'm*")
+    full_stats_parts.append("")
+    full_stats_parts.append("⚡ *SISTEMA STATISTIKASI:*")
+    full_stats_parts.append(f"├ Ma'lumotlar bazasi: *{len(bot.data['users'])} ta foydalanuvchi*")
+    full_stats_parts.append(f"├ Log fayllari: *{len(bot.data['admin_logs'])} ta*")
+    full_stats_parts.append(f"└ G'oliblar tarixi: *{len(bot.data['winners_history'])} ta*")
+    
+    full_stats = "\n".join(full_stats_parts)
     
     await update.message.reply_text(full_stats, parse_mode='Markdown')
 
