@@ -1076,7 +1076,7 @@ async def admin_users_panel(query, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.message.edit_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def admin_settings_panel(query, context):
     """⚙️ Sozlamalar paneli"""
@@ -1100,7 +1100,7 @@ async def admin_settings_panel(query, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.message.edit_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def admin_broadcast_panel(query, context):
     """📢 Broadcast paneli"""
@@ -1120,7 +1120,7 @@ Xabar yuborish uchun quyidagi buyruqdan foydalaning:
     keyboard = [[InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.message.edit_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def admin_management_panel(query, context):
     """🔧 Boshqaruv paneli"""
@@ -1147,7 +1147,7 @@ async def admin_management_panel(query, context):
     keyboard = [[InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.message.edit_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
 # 🔧 ADMIN COMMAND HANDLERLAR
 async def admin_draw_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
