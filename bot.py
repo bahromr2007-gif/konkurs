@@ -73,7 +73,7 @@ class PremiumGiveawayBot:
                             data[key] = default_data[key]
                     
                     # Foydalanuvchi ma'lumotlarini tuzatish
-                    for user_id, user_data in data['users'].items():
+                    for user_id, user_data in data.get('users', {}).items():
                         required_fields = {
                             'points': 0,
                             'last_active': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -104,6 +104,12 @@ class PremiumGiveawayBot:
                             user_data['rank'] = 'expert'
                         elif referrals >= 10:
                             user_data['rank'] = 'pro'
+                        else:
+                            user_data['rank'] = 'beginner'
+                    
+                    # users bo'limi bo'lmasa yaratish
+                    if 'users' not in data:
+                        data['users'] = {}
                     
                     return data
             else:
@@ -174,6 +180,8 @@ class PremiumGiveawayBot:
     
     def add_user(self, user_id, username, full_name, referrer_id=None):
         """👤 Yangi foydalanuvchi qo'shish"""
+        user_id_str = str(user_id)
+        
         user_data = {
             'username': username or full_name,
             'full_name': full_name,
@@ -195,35 +203,36 @@ class PremiumGiveawayBot:
             'rank': 'beginner'
         }
         
-        self.data['users'][user_id] = user_data
+        self.data['users'][user_id_str] = user_data
         self.data['statistics']['total_users'] = len(self.data['users'])
         
         # 📈 Referal bonus berish
-        if referrer_id and referrer_id in self.data['users']:
-            if not self.data['users'][referrer_id]['banned']:
-                self.data['users'][referrer_id]['referrals'] += 1
-                self.data['users'][referrer_id]['points'] += self.config['referral_bonus']
+        if referrer_id and str(referrer_id) in self.data['users']:
+            referrer_id_str = str(referrer_id)
+            if not self.data['users'][referrer_id_str]['banned']:
+                self.data['users'][referrer_id_str]['referrals'] += 1
+                self.data['users'][referrer_id_str]['points'] += self.config['referral_bonus']
                 
-                referrals_count = self.data['users'][referrer_id]['referrals']
+                referrals_count = self.data['users'][referrer_id_str]['referrals']
                 for i, threshold in enumerate(self.config['bonus_referrals']):
                     if referrals_count == threshold:
                         bonus = self.config['bonus_points'][i]
-                        self.data['users'][referrer_id]['points'] += bonus
+                        self.data['users'][referrer_id_str]['points'] += bonus
                         achievement_name = f"milestone_{threshold}"
-                        if achievement_name not in self.data['users'][referrer_id]['achievements']:
-                            self.data['users'][referrer_id]['achievements'].append(achievement_name)
+                        if achievement_name not in self.data['users'][referrer_id_str]['achievements']:
+                            self.data['users'][referrer_id_str]['achievements'].append(achievement_name)
                 
                 # 📝 Referal tarixi
-                self.data['users'][referrer_id]['referral_history'].append({
-                    'user_id': user_id,
+                self.data['users'][referrer_id_str]['referral_history'].append({
+                    'user_id': user_id_str,
                     'username': username or full_name,
                     'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     'bonus': self.config['referral_bonus']
                 })
                 
-                if referrer_id not in self.data['referrals']:
-                    self.data['referrals'][referrer_id] = []
-                self.data['referrals'][referrer_id].append(user_id)
+                if referrer_id_str not in self.data['referrals']:
+                    self.data['referrals'][referrer_id_str] = []
+                self.data['referrals'][referrer_id_str].append(user_id_str)
                 
                 self.data['statistics']['total_referrals'] += 1
         
@@ -281,8 +290,7 @@ async def show_strict_channel_warning(update: Update, context: ContextTypes.DEFA
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    message = f"""
-🔒 *KIRISH BLOKLANGAN*
+    message = f"""🔒 *KIRISH BLOKLANGAN*
 
 ⚠️ *Majburiy kanal:* {REQUIRED_CHANNEL}
 
@@ -293,8 +301,7 @@ Siz kanalga a'zo emassiz yoki kanaldan chiqib ketgansiz.
 🔄 *Qanday tuzatish:*
 1. Yuqoridagi tugma orqali kanalga kirish
 2. "✅ TEKSHIRISH" tugmasini bosing
-3. Agar ishlamasa, "🔄 YANGILASH" tugmasini bosing
-"""
+3. Agar ishlamasa, "🔄 YANGILASH" tugmasini bosing"""
     
     if update.callback_query:
         await update.callback_query.message.edit_text(message, reply_markup=reply_markup, parse_mode='Markdown')
@@ -335,19 +342,22 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
     
     # 👤 Foydalanuvchi ma'lumotlari
     user_id = str(user.id)
-    referrer_id = context.args[0] if context.args and not is_callback else None
+    referrer_id = None
+    
+    if is_command and context.args:
+        referrer_id = context.args[0]
+    elif not is_callback and context.args:
+        referrer_id = context.args[0]
     
     # 🚫 Ban tekshirish
-    if user_id in bot.data['users'] and bot.data['users'][user_id]['banned']:
-        banned_message = """
-🚫 *SIZNING AKKAUNTINGIZ BLOKLANGAN!*
+    if user_id in bot.data['users'] and bot.data['users'][user_id].get('banned', False):
+        banned_message = """🚫 *SIZNING AKKAUNTINGIZ BLOKLANGAN!*
 
 ℹ️ *Sabab:* Qoidabuzarlik
 📞 *Admin bilan bog'lanish uchun:* /admin
 ⏳ *Blok vaqti:* Doimiy
 
-⚠️ *Ogohlantirish:* Soxta takliflar yoki ko'p akkaunt ochish qat'iyan man etiladi.
-"""
+⚠️ *Ogohlantirish:* Soxta takliflar yoki ko'p akkaunt ochish qat'iyan man etiladi."""
         if is_callback:
             await query.message.edit_text(banned_message, parse_mode='Markdown')
         else:
@@ -364,18 +374,16 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
         )
         
         # 🎁 Referal taklif qabul qilinganda
-        if referrer_id and referrer_id in bot.data['users']:
+        if referrer_id and str(referrer_id) in bot.data['users']:
             try:
-                congrat_msg = f"""
-🎊 *YANGI TAKLIF QABUL QILINDI!*
+                congrat_msg = f"""🎊 *YANGI TAKLIF QABUL QILINDI!*
 
 👤 *Yangi foydalanuvchi:* {user.full_name}
 💰 *Bonus:* +{bot.config['referral_bonus']} ball
-📈 *Jami takliflar:* {bot.data['users'][referrer_id]['referrals']} ta
-🏆 *Jami ballar:* {bot.data['users'][referrer_id]['points']} ball
+📈 *Jami takliflar:* {bot.data['users'][str(referrer_id)]['referrals']} ta
+🏆 *Jami ballar:* {bot.data['users'][str(referrer_id)]['points']} ball
 
-💎 *Davom eting!* Har 5, 10, 25, 50, 100 ta taklif uchun maxsus bonuslar!
-"""
+💎 *Davom eting!* Har 5, 10, 25, 50, 100 ta taklif uchun maxsus bonuslar!"""
                 await context.bot.send_message(
                     chat_id=int(referrer_id),
                     text=congrat_msg,
@@ -389,14 +397,14 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
         bot.save_data()
     
     # 🔗 Shaxsiy havola
-    bot_username = context.bot.username
+    bot_username = (await context.bot.get_me()).username
     user_link = f"https://t.me/{bot_username}?start={user_id}"
     
     # 📊 Foydalanuvchi statistikasi
     user_data = bot.data['users'][user_id]
-    referrals = user_data['referrals']
-    points = user_data['points']
-    rank = user_data['rank']
+    referrals = user_data.get('referrals', 0)
+    points = user_data.get('points', 0)
+    rank = user_data.get('rank', 'beginner')
     
     # 🎨 Rank emojilari
     rank_emojis = {
@@ -438,8 +446,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     # 🎨 Chiroyli welcome matni
-    welcome_text = f"""
-🎉 *PREMIUM QUR'A BOTIGA XUSH KELIBSIZ!*
+    welcome_text = f"""🎉 *PREMIUM QUR'A BOTIGA XUSH KELIBSIZ!*
 {rank_emojis.get(rank, '👤')} *{user.first_name}*
 
 ✅ *Kanal statusi:* A'zo
@@ -461,8 +468,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, is_c
 🔗 *Shaxsiy havola:*
 `{user_link}`
 
-💎 *Bonus:* Har 5, 10, 25, 50, 100 ta taklif uchun maxsus sovg'alar!
-"""
+💎 *Bonus:* Har 5, 10, 25, 50, 100 ta taklif uchun maxsus sovg'alar!"""
     
     if is_callback:
         await query.message.edit_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -541,10 +547,8 @@ async def user_stats(query, context):
     
     # 📈 Progress barlar
     referral_progress = min(100, (user_data.get('referrals', 0) / 10) * 100)
-    level_progress = min(100, (user_data.get('points', 0) % 1000) / 10)
     
-    stats_text = f"""
-📊 *SHAXSIY STATISTIKA PANELI*
+    stats_text = f"""📊 *SHAXSIY STATISTIKA PANELI*
 
 👤 *Shaxsiy ma'lumotlar:*
 ├ 🏷️ Ism: *{user_data.get('full_name', query.from_user.first_name)}*
@@ -565,8 +569,7 @@ async def user_stats(query, context):
 ├ ⚠️ Ogohlantirishlar: *{user_data.get('warnings', 0)} ta*
 └ 📊 Daraja: *{user_data.get('rank', 'beginner').capitalize()}*
 
-🏆 *Keyingi qur'a:* {bot.config['next_draw_date']}
-"""
+🏆 *Keyingi qur'a:* {bot.config['next_draw_date']}"""
     
     keyboard = [
         [
@@ -593,8 +596,7 @@ async def user_profile(query, context):
         'legend': '🔥'
     }
     
-    profile_text = f"""
-👤 *SHASSIY PROFIL*
+    profile_text = f"""👤 *SHASSIY PROFIL*
 
 {rank_emojis.get(user_data.get('rank', 'beginner'), '👤')} *{user_data.get('full_name', query.from_user.first_name)}*
 
@@ -616,8 +618,7 @@ async def user_profile(query, context):
 📈 *Statistikalar:*
 ├ 👥 Ko'rishlar: {user_data.get('profile_views', 0)} marta
 ├ 🔥 Streak: {user_data.get('daily_streak', 0)} kun
-└ 🏆 Yutuqlar: {len(user_data.get('achievements', []))} ta
-"""
+└ 🏆 Yutuqlar: {len(user_data.get('achievements', []))} ta"""
     
     keyboard = [
         [
@@ -636,11 +637,10 @@ async def giveaway_info(query, context):
     for prize in bot.config['prizes']:
         prizes_text += f"{prize['emoji']} {prize['place']}-o'rin: *{prize['amount']:,} {prize['currency']}*\n"
     
-    qualified = sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)
+    qualified = sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)
     total_prizes = sum(p['amount'] for p in bot.config['prizes'])
     
-    giveaway_text = f"""
-👑 *PREMIUM QUR'A TIZIMI*
+    giveaway_text = f"""👑 *PREMIUM QUR'A TIZIMI*
 
 💰 *JACKPOT SOVG'ALARI:*
 {prizes_text}
@@ -661,8 +661,7 @@ async def giveaway_info(query, context):
 
 ⚠️ *DIQQAT:* Faqat kanal a'zolari va {bot.config['min_referrals']}+ taklif to'plaganlar qatnasha oladi!
 
-🎲 *G'oliblar:* Tasodifiy tanlanadi (Random Selection)
-"""
+🎲 *G'oliblar:* Tasodifiy tanlanadi (Random Selection)"""
     
     keyboard = [
         [
@@ -678,7 +677,7 @@ async def giveaway_info(query, context):
 async def invite_panel(query, context):
     """🚀 Taklif qilish paneli"""
     user_id = str(query.from_user.id)
-    bot_username = context.bot.username
+    bot_username = (await context.bot.get_me()).username
     user_link = f"https://t.me/{bot_username}?start={user_id}"
     
     user_data = bot.data['users'].get(user_id, {})
@@ -686,8 +685,7 @@ async def invite_panel(query, context):
     needed = max(0, bot.config['min_referrals'] - referrals)
     progress = min(100, (referrals / bot.config['min_referrals']) * 100)
     
-    invite_text = f"""
-🚀 *TAKLIF QILISH TIZIMI*
+    invite_text = f"""🚀 *TAKLIF QILISH TIZIMI*
 
 🔗 *Shaxsiy havola:*
 `{user_link}`
@@ -706,8 +704,7 @@ async def invite_panel(query, context):
 ├ 5️⃣0️⃣ {create_progress_bar(100 if referrals >= 50 else (referrals/50)*100)} *50 ta = +500 ball*
 └ 💯 {create_progress_bar(100 if referrals >= 100 else (referrals/100)*100)} *100 ta = +1000 ball*
 
-💡 *Maslahat:* Havolani nusxalab, do'stlaringizga yuboring yoki ijtimoiy tarmoqlarda ulashing!
-"""
+💡 *Maslahat:* Havolani nusxalab, do'stlaringizga yuboring yoki ijtimoiy tarmoqlarda ulashing!"""
     
     keyboard = [
         [InlineKeyboardButton("📋 Havolani nusxalash", callback_data='copy_link')],
@@ -724,7 +721,7 @@ async def invite_panel(query, context):
 async def copy_referral_link(query, context):
     """📋 Havolani nusxalash"""
     user_id = str(query.from_user.id)
-    bot_username = context.bot.username
+    bot_username = (await context.bot.get_me()).username
     user_link = f"https://t.me/{bot_username}?start={user_id}"
     
     await query.answer(f"Havola nusxalandi! \n\n{user_link}", show_alert=True)
@@ -732,7 +729,7 @@ async def copy_referral_link(query, context):
 async def leaderboard_panel(query, context):
     """🏆 Reyting paneli"""
     # Faol foydalanuvchilarni olish
-    active_users = {uid: data for uid, data in bot.data['users'].items() if not data['banned']}
+    active_users = {uid: data for uid, data in bot.data['users'].items() if not data.get('banned', False)}
     
     # Top 10 ni tanlash
     top_users = sorted(
@@ -803,8 +800,7 @@ async def leaderboard_panel(query, context):
 
 async def help_panel(query, context):
     """❓ Yordam paneli"""
-    help_text = f"""
-❓ *YORDAM VA QO'LLANMA*
+    help_text = f"""❓ *YORDAM VA QO'LLANMA*
 
 🤖 *Bot haqida:*
 Bu premium qur'a boti bo'lib, do'stlaringizni taklif qilib katta sovg'alarni yutib olishingiz mumkin.
@@ -834,8 +830,7 @@ Bu premium qur'a boti bo'lib, do'stlaringizni taklif qilib katta sovg'alarni yut
 
 📞 *Aloqa:*
 • Admin bilan bog'lanish uchun /admin buyrug'ini yuboring
-• Kanal: @{CHANNEL_USERNAME}
-"""
+• Kanal: @{CHANNEL_USERNAME}"""
     
     keyboard = [
         [
@@ -856,8 +851,7 @@ async def daily_bonus(query, context):
     today = datetime.now().strftime("%Y-%m-%d")
     
     if user_data.get('last_daily') == today:
-        bonus_text = f"""
-🎁 *KUNLIK BONUS*
+        bonus_text = f"""🎁 *KUNLIK BONUS*
 
 ⚠️ *Siz bugun bonus olgansiz!*
 
@@ -867,20 +861,18 @@ async def daily_bonus(query, context):
 
 🔥 *Streak:* {user_data.get('daily_streak', 0)} kun ketma-ket
 
-💡 *Maslahat:* Ertaga kelib, ketma-ketlikni saqlab qoling va bonus miqdorini oshiring!
-"""
+💡 *Maslahat:* Ertaga kelib, ketma-ketlikni saqlab qoling va bonus miqdorini oshiring!"""
     else:
         # Bonus miqdori
         streak = user_data.get('daily_streak', 0) + 1
         bonus = min(100, streak * 10)  # Maksimum 100 ball
         
-        user_data['points'] += bonus
+        user_data['points'] = user_data.get('points', 0) + bonus
         user_data['last_daily'] = today
         user_data['daily_streak'] = streak
         bot.save_data()
         
-        bonus_text = f"""
-🎁 *KUNLIK BONUS OLINDI!*
+        bonus_text = f"""🎁 *KUNLIK BONUS OLINDI!*
 
 💰 *Bonus miqdori:* +{bonus} ball
 🔥 *Streak:* {streak} kun ketma-ket
@@ -890,8 +882,7 @@ async def daily_bonus(query, context):
 
 ⏰ *Keyingi bonus:* Ertaga 00:00
 
-💎 *Maslahat:* Har kuni kelib bonus oling va streak ni oshiring!
-"""
+💎 *Maslahat:* Har kuni kelib bonus oling va streak ni oshiring!"""
     
     keyboard = [
         [
@@ -920,13 +911,12 @@ async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Dashboard kartalari
     stats = bot.data['statistics']
     total_users = stats['total_users']
-    active_users = sum(1 for u in bot.data['users'].values() if not u['banned'])
-    qualified_users = sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)
+    active_users = sum(1 for u in bot.data['users'].values() if not u.get('banned', False))
+    qualified_users = sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)
     today_users = len([u for u in bot.data['users'].values() 
                       if datetime.now().strftime("%Y-%m-%d") in u.get('join_date', '')])
     
-    dashboard_text = f"""
-👑 *ADMIN DASHBOARD*
+    dashboard_text = f"""👑 *ADMIN DASHBOARD*
 👤 Admin: *{user.full_name}*
 🆔 ID: `{user.id}`
 📊 Bot status: *{bot.config['bot_status'].upper()}*
@@ -949,8 +939,7 @@ async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ├ 💰 Referal bonus: *{bot.config['referral_bonus']} ball*
 └ 🎲 Qur'a holati: *{'✅ Faol' if bot.config['giveaway_active'] else '❌ Nofaol'}*
 
-📅 *KEYINGI QUR'A:* {bot.config['next_draw_date']}
-"""
+📅 *KEYINGI QUR'A:* {bot.config['next_draw_date']}"""
     
     keyboard = [
         [
@@ -984,18 +973,17 @@ async def admin_stats_command(query, context):
     active_today = len([u for u in bot.data['users'].values() 
                        if datetime.now().strftime("%Y-%m-%d") in u.get('last_active', '')])
     
-    admin_stats = f"""
-📈 *BOTNING TO'LIQ STATISTIKASI*
+    admin_stats = f"""📈 *BOTNING TO'LIQ STATISTIKASI*
 
 👥 *FOYDALANUVCHILAR:*
 ┌ 📊 Jami ro'yxatdan o'tgan: *{stats['total_users']} ta*
-├ ✅ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u['banned'])} ta*
-├ ❌ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u['banned'])} ta*
+├ ✅ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u.get('banned', False))} ta*
+├ ❌ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u.get('banned', False))} ta*
 └ 🔥 Bugun faol: *{active_today} ta*
 
 🎯 *TAKLIFLAR:*
 ┌ 📈 Jami takliflar: *{stats['total_referrals']} ta*
-├ ⭐ Eng ko'p taklif: *{max((u['referrals'] for u in bot.data['users'].values()), default=0)} ta*
+├ ⭐ Eng ko'p taklif: *{max((u.get('referrals', 0) for u in bot.data['users'].values()), default=0)} ta*
 ├ 📊 O'rtacha taklif: *{stats['total_referrals']/max(1, stats['total_users']):.1f} ta*
 └ 🎯 Minimal talab: *{bot.config['min_referrals']} ta*
 
@@ -1003,14 +991,13 @@ async def admin_stats_command(query, context):
 ┌ 🎊 Jami g'oliblar: *{stats['total_winners']} ta*
 ├ 💰 Jami sovg'alar: *{stats['total_prizes']:,} so'm*
 ├ 📅 So'nggi qur'a: *{stats['last_draw'] or 'Hali o\'tkazilmagan'}*
-└ 🎫 Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)} ta*
+└ 🎫 Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)} ta*
 
 📊 *FAOLLIK STATISTIKASI:*
 ┌ 📅 Kunlik o'rtacha: *{active_today} ta*
 ├ 📈 Haftalik o'sish: *24.5%*
 ├ 📊 O'rtacha session: *3.2 daqiqa*
-└ 🔄 Chiqish darajasi: *12.3%*
-"""
+└ 🔄 Chiqish darajasi: *12.3%*"""
     
     keyboard = [
         [InlineKeyboardButton("📈 Batafsil statistika", callback_data='admin_detailed_stats')],
@@ -1023,20 +1010,18 @@ async def admin_stats_command(query, context):
 async def admin_draw_panel(query, context):
     """🎲 Qur'a paneli"""
     qualified = [(uid, data) for uid, data in bot.data['users'].items() 
-                if data['referrals'] >= 10 and not data['banned']]
+                if data.get('referrals', 0) >= 10 and not data.get('banned', False)]
     
-    text = f"""
-🎲 *QUR'A PANELI*
+    text = f"""🎲 *QUR'A PANELI*
 
 📊 *ISHTIROKCHILAR:* *{len(qualified)} ta*
 📅 *KEYINGI QUR'A:* *{bot.config['next_draw_date']}*
 
-💰 *SOVG'ALAR:*
-"""
+💰 *SOVG'ALAR:*"""
     for prize in bot.config['prizes']:
-        text += f"{prize['emoji']} {prize['place']}-o'rin: *{prize['amount']:,} so'm*\n"
+        text += f"\n{prize['emoji']} {prize['place']}-o'rin: *{prize['amount']:,} so'm*"
     
-    text += f"\n🎯 *Minimal talab:* *{bot.config['min_referrals']} ta* taklif"
+    text += f"\n\n🎯 *Minimal talab:* *{bot.config['min_referrals']} ta* taklif"
     text += f"\n⚡ *Qur'a holati:* *{'✅ Tayyor' if len(qualified) >= 3 else '❌ Yetarli emas'}*"
     
     keyboard = [
@@ -1050,24 +1035,22 @@ async def admin_draw_panel(query, context):
 async def admin_users_panel(query, context):
     """👥 Foydalanuvchilar paneli"""
     total = len(bot.data['users'])
-    active = sum(1 for u in bot.data['users'].values() if not u['banned'])
-    banned = sum(1 for u in bot.data['users'].values() if u['banned'])
+    active = sum(1 for u in bot.data['users'].values() if not u.get('banned', False))
+    banned = sum(1 for u in bot.data['users'].values() if u.get('banned', False))
     
-    top_users = sorted([(uid, data) for uid, data in bot.data['users'].items() if not data['banned']],
-                      key=lambda x: x[1]['referrals'], reverse=True)[:5]
+    top_users = sorted([(uid, data) for uid, data in bot.data['users'].items() if not data.get('banned', False)],
+                      key=lambda x: x[1].get('referrals', 0), reverse=True)[:5]
     
-    text = f"""
-👥 *FOYDALANUVCHILAR PANELI*
+    text = f"""👥 *FOYDALANUVCHILAR PANELI*
 
 📊 *UMUMIY:*
 ├ 👥 Jami: *{total} ta*
 ├ ✅ Faol: *{active} ta*
 └ ❌ Bloklangan: *{banned} ta*
 
-🏆 *TOP 5 FOYDALANUVCHI:*
-"""
+🏆 *TOP 5 FOYDALANUVCHI:*"""
     for i, (uid, data) in enumerate(top_users, 1):
-        text += f"{i}. *{data['full_name'][:15]}* - {data['referrals']} ta taklif\n"
+        text += f"\n{i}. *{data.get('full_name', 'Noma\'lum')[:15]}* - {data.get('referrals', 0)} ta taklif"
     
     keyboard = [
         [InlineKeyboardButton("🔍 Qidirish", callback_data='admin_search_user')],
@@ -1080,8 +1063,7 @@ async def admin_users_panel(query, context):
 
 async def admin_settings_panel(query, context):
     """⚙️ Sozlamalar paneli"""
-    text = f"""
-⚙️ *BOT SOZLAMALARI*
+    text = f"""⚙️ *BOT SOZLAMALARI*
 
 🔒 *Kanal tekshirish:* {'✅ Qattiq' if bot.config['strict_channel_check'] else '⚠️ Oddiy'}
 🎯 *Minimal taklif:* {bot.config['min_referrals']} ta
@@ -1089,10 +1071,9 @@ async def admin_settings_panel(query, context):
 🎲 *Qur'a holati:* {'✅ Faol' if bot.config['giveaway_active'] else '❌ Nofaol'}
 📅 *Keyingi qur'a:* {bot.config['next_draw_date']}
 
-⚡ *Bonuslar:*
-"""
+⚡ *Bonuslar:*"""
     for i in range(len(bot.config['bonus_referrals'])):
-        text += f"├ {bot.config['bonus_referrals'][i]} ta = +{bot.config['bonus_points'][i]} ball\n"
+        text += f"\n├ {bot.config['bonus_referrals'][i]} ta = +{bot.config['bonus_points'][i]} ball"
     
     keyboard = [
         [InlineKeyboardButton("✏️ Tahrirlash", callback_data='admin_edit_settings')],
@@ -1104,8 +1085,7 @@ async def admin_settings_panel(query, context):
 
 async def admin_broadcast_panel(query, context):
     """📢 Broadcast paneli"""
-    text = """
-📢 *BROADCAST XABAR YUBORISH*
+    text = """📢 *BROADCAST XABAR YUBORISH*
 
 Xabar yuborish uchun quyidagi buyruqdan foydalaning:
 
@@ -1114,8 +1094,7 @@ Xabar yuborish uchun quyidagi buyruqdan foydalaning:
 *Misol:*
 `/broadcast Yangi qur'a boshlanmoqda!`
 
-⚠️ *Eslatma:* Bu xabar barcha faol foydalanuvchilarga yuboriladi.
-"""
+⚠️ *Eslatma:* Bu xabar barcha faol foydalanuvchilarga yuboriladi."""
     
     keyboard = [[InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1124,8 +1103,7 @@ Xabar yuborish uchun quyidagi buyruqdan foydalaning:
 
 async def admin_management_panel(query, context):
     """🔧 Boshqaruv paneli"""
-    text = """
-🔧 *BOT BOSHQARUV PANELI*
+    text = """🔧 *BOT BOSHQARUV PANELI*
 
 *Mavjud buyruqlar:*
 
@@ -1141,8 +1119,7 @@ async def admin_management_panel(query, context):
 • `/draw` - Qur'a o'tkazish
 
 📢 *Xabar yuborish:*
-• `/broadcast <xabar>` - Broadcast xabar
-"""
+• `/broadcast <xabar>` - Broadcast xabar"""
     
     keyboard = [[InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1163,7 +1140,7 @@ async def admin_draw_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     qualified = [(uid, data) for uid, data in bot.data['users'].items() 
-                if data['referrals'] >= bot.config['min_referrals'] and not data['banned']]
+                if data.get('referrals', 0) >= bot.config['min_referrals'] and not data.get('banned', False)]
     
     if len(qualified) < 3:
         await update.message.reply_text(
@@ -1181,35 +1158,30 @@ async def admin_draw_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     random.seed(datetime.now().timestamp())
     winners = random.sample(qualified, min(3, len(qualified)))
     
-    result = f"""
-🎊 *PREMIUM QUR'A NATIJALARI* 🎊
+    result = f"""🎊 *PREMIUM QUR'A NATIJALARI* 🎊
 
 📅 *Sana:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 👥 *Jami ishtirokchilar:* {len(qualified)} ta
 🎯 *Talab:* {bot.config['min_referrals']}+ taklif
 
-🏆 *G'OlibLAR:*
-
-"""
+🏆 *G'OlibLAR:*"""
     
     total_prizes = 0
     for i, (winner_id, winner_data) in enumerate(winners, 1):
         prize = bot.config['prizes'][i-1]
         total_prizes += prize['amount']
         
-        result += f"""{prize['emoji']} *{i}-o'rin:*
+        result += f"""\n\n{prize['emoji']} *{i}-o'rin:*
    👤 *Ism:* {winner_data['full_name']}
-   🎯 *Takliflar:* {winner_data['referrals']} ta
+   🎯 *Takliflar:* {winner_data.get('referrals', 0)} ta
    💰 *Mukofot:* {prize['amount']:,} so'm
-   🆔 *ID:* `{winner_id}`
-
-"""
+   🆔 *ID:* `{winner_id}`"""
         
         # G'olib ma'lumotlarini yangilash
-        bot.data['users'][winner_id]['total_earned'] += prize['amount']
-        bot.data['users'][winner_id]['points'] += 1000
-        if f'winner_{i}' not in bot.data['users'][winner_id]['achievements']:
-            bot.data['users'][winner_id]['achievements'].append(f'winner_{i}')
+        bot.data['users'][winner_id]['total_earned'] = bot.data['users'][winner_id].get('total_earned', 0) + prize['amount']
+        bot.data['users'][winner_id]['points'] = bot.data['users'][winner_id].get('points', 0) + 1000
+        if f'winner_{i}' not in bot.data['users'][winner_id].get('achievements', []):
+            bot.data['users'][winner_id]['achievements'] = bot.data['users'][winner_id].get('achievements', []) + [f'winner_{i}']
     
     # Bot ma'lumotlarini yangilash
     bot.config['next_draw_date'] = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
@@ -1221,9 +1193,9 @@ async def admin_draw_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         'date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         'winners': [{
             'user_id': uid,
-            'username': data['username'],
-            'full_name': data['full_name'],
-            'referrals': data['referrals'],
+            'username': data.get('username', ''),
+            'full_name': data.get('full_name', ''),
+            'referrals': data.get('referrals', 0),
             'prize': bot.config['prizes'][i]['amount'],
             'place': i+1
         } for i, (uid, data) in enumerate(winners)]
@@ -1236,20 +1208,18 @@ async def admin_draw_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for i, (winner_id, winner_data) in enumerate(winners, 1):
         prize = bot.config['prizes'][i-1]
         try:
-            congrat_msg = f"""
-🎉 *TABRIKLAYMIZ! SIZ G'OLIB BO'LDINGIZ!*
+            congrat_msg = f"""🎉 *TABRIKLAYMIZ! SIZ G'OLIB BO'LDINGIZ!*
 
 🏆 *O'ringiz:* {i}-o'rin
 💰 *Mukofot:* {prize['amount']:,} so'm
-🎯 *Sizning takliflar:* {winner_data['referrals']} ta
+🎯 *Sizning takliflar:* {winner_data.get('referrals', 0)} ta
 ➕ *Bonus:* +1000 ball
 
 📞 *Mukofotni olish uchun:*
 Admin bilan bog'laning va ID'ingizni yuboring:
 🆔 *Sizning ID'ingiz:* `{winner_id}`
 
-🎊 *Yana qatnashish uchun* do'stlaringizni taklif qilishda davom eting!
-"""
+🎊 *Yana qatnashish uchun* do'stlaringizni taklif qilishda davom eting!"""
             await context.bot.send_message(
                 chat_id=int(winner_id),
                 text=congrat_msg,
@@ -1279,7 +1249,7 @@ async def admin_broadcast_command(update: Update, context: ContextTypes.DEFAULT_
     message_text = ' '.join(context.args)
     
     users = [uid for uid, data in bot.data['users'].items() 
-            if data.get('notifications', True) and not data['banned']]
+            if data.get('notifications', True) and not data.get('banned', False)]
     
     sent = 0
     failed = 0
@@ -1334,8 +1304,7 @@ async def admin_user_info_command(update: Update, context: ContextTypes.DEFAULT_
     
     user_data = bot.data['users'][target_id]
     
-    user_info = f"""
-👤 *FOYDALANUVCHI MA'LUMOTLARI*
+    user_info = f"""👤 *FOYDALANUVCHI MA'LUMOTLARI*
 
 🆔 *ID:* `{target_id}`
 👤 *Ism:* {user_data['full_name']}
@@ -1344,25 +1313,24 @@ async def admin_user_info_command(update: Update, context: ContextTypes.DEFAULT_
 🔄 *So'nggi faollik:* {user_data['last_active']}
 
 📊 *STATISTIKA:*
-├ 👥 Takliflar: *{user_data['referrals']} ta*
-├ 🎯 Ballar: *{user_data['points']} ball*
-├ 📈 Daraja: *{user_data['level']}*
-└ 💰 Yutganlar: *{user_data['total_earned']:,} so'm*
+├ 👥 Takliflar: *{user_data.get('referrals', 0)} ta*
+├ 🎯 Ballar: *{user_data.get('points', 0)} ball*
+├ 📈 Daraja: *{user_data.get('level', 1)}*
+└ 💰 Yutganlar: *{user_data.get('total_earned', 0):,} so'm*
 
 ⚡ *HOLAT:*
-├ 🔓 Akkaunt: *{'✅ Faol' if not user_data['banned'] else '❌ Bloklangan'}*
-├ 🔔 Bildirishnomalar: *{'✅ Yoqilgan' if user_data['notifications'] else '❌ O\'chirilgan'}*
-├ ⚠️ Ogohlantirishlar: *{user_data['warnings']} ta*
+├ 🔓 Akkaunt: *{'✅ Faol' if not user_data.get('banned', False) else '❌ Bloklangan'}*
+├ 🔔 Bildirishnomalar: *{'✅ Yoqilgan' if user_data.get('notifications', True) else '❌ O\'chirilgan'}*
+├ ⚠️ Ogohlantirishlar: *{user_data.get('warnings', 0)} ta*
 └ 🏆 Daraja: *{user_data.get('rank', 'beginner').capitalize()}*
 
-🔗 *REFERALLAR:* {len(bot.data['referrals'].get(target_id, []))} ta
-📋 *YUTUQLAR:* {len(user_data['achievements'])} ta
-"""
+🔗 *REFERALLAR:* {len(bot.data.get('referrals', {}).get(target_id, []))} ta
+📋 *YUTUQLAR:* {len(user_data.get('achievements', []))} ta"""
     
     keyboard = [
         [
             InlineKeyboardButton("⚠️ Ogohlantirish", callback_data=f'warn_{target_id}'),
-            InlineKeyboardButton(f"{'✅ Blokni ochish' if user_data['banned'] else '🚫 Bloklash'}", 
+            InlineKeyboardButton(f"{'✅ Blokni ochish' if user_data.get('banned', False) else '🚫 Bloklash'}", 
                                callback_data=f'ban_{target_id}')
         ],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
@@ -1400,13 +1368,11 @@ async def admin_ban_user_command(update: Update, context: ContextTypes.DEFAULT_T
     try:
         await context.bot.send_message(
             chat_id=int(target_id),
-            text=f"""
-🚫 *SIZNING AKKAUNTINGIZ BLOKLANGAN!*
+            text=f"""🚫 *SIZNING AKKAUNTINGIZ BLOKLANGAN!*
 
 ℹ️ *Sabab:* {reason}
 
-📞 *Agar xato deb hisoblasangiz, admin bilan bog'laning.*
-""",
+📞 *Agar xato deb hisoblasangiz, admin bilan bog'laning.*""",
             parse_mode='Markdown'
         )
     except:
@@ -1460,23 +1426,22 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
     
     stats = bot.data['statistics']
     
-    full_stats = f"""
-📈 *TO'LIQ STATISTIKA HISOBOTI*
+    full_stats = f"""📈 *TO'LIQ STATISTIKA HISOBOTI*
 
 📅 *Hisobot sanasi:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 👥 *FOYDALANUVCHI STATISTIKASI:*
 ├ Jami ro'yxatdan o'tganlar: *{stats['total_users']} ta*
-├ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u['banned'])} ta*
-├ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u['banned'])} ta*
+├ Faol foydalanuvchilar: *{sum(1 for u in bot.data['users'].values() if not u.get('banned', False))} ta*
+├ Bloklanganlar: *{sum(1 for u in bot.data['users'].values() if u.get('banned', False))} ta*
 ├ O'rtacha takliflar: *{stats['total_referrals'] / max(1, stats['total_users']):.1f} ta*
-└ Eng ko'p taklif: *{max((u['referrals'] for u in bot.data['users'].values()), default=0)} ta*
+└ Eng ko'p taklif: *{max((u.get('referrals', 0) for u in bot.data['users'].values()), default=0)} ta*
 
 🏆 *QUR'A STATISTIKASI:*
 ├ Jami g'oliblar: *{stats['total_winners']} ta*
 ├ Jami sovg'alar: *{stats['total_prizes']:,} so'm*
 ├ So'nggi qur'a: *{stats['last_draw'] or 'Hali o\'tkazilmagan'}*
-├ Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)} ta*
+├ Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u.get('referrals', 0) >= 10)} ta*
 └ O'rtacha sovg'a: *{stats['total_prizes'] / max(1, stats['total_winners']):,.0f} so'm*
 
 📊 *HARAKAT STATISTIKASI:*
@@ -1492,8 +1457,7 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 ⚡ *SISTEMA STATISTIKASI:*
 ├ Ma'lumotlar bazasi: *{len(bot.data['users'])} ta foydalanuvchi*
 ├ Log fayllari: *{len(bot.data['admin_logs'])} ta*
-└ G'oliblar tarixi: *{len(bot.data['winners_history'])} ta*
-"""
+└ G'oliblar tarixi: *{len(bot.data['winners_history'])} ta*"""
     
     await update.message.reply_text(full_stats, parse_mode='Markdown')
 
