@@ -2,7 +2,7 @@
 🎁 PREMIUM QUR'A BOTI
 🏆 Telegram orqali do'stlarni taklif qilib katta sovg'alarni yutib oling!
 👨‍💻 Dasturchi: @newkonkurs admini
-📅 Versiya: 2.0.0
+📅 Versiya: 2.0.1
 """
 
 import logging
@@ -132,10 +132,11 @@ class PremiumGiveawayBot:
             'bonus_points': [50, 100, 250, 500, 1000],
             'auto_draw': True,
             'draw_time': "18:00",
-            'daily_bonus': False,
-            'welcome_bonus': 0,
+            'daily_bonus': True,
+            'welcome_bonus': 10,
             'theme': 'premium',
-            'bot_status': 'online'
+            'bot_status': 'online',
+            'bot_token': "7321012980:AAFoMhRMMLXdInH1e3WLowY7KgZrMDe-0Ks"
         }
         
         try:
@@ -229,19 +230,6 @@ class PremiumGiveawayBot:
         
         self.save_data()
         return user_data
-    
-    def add_admin_log(self, action, admin_id, details):
-        """📝 Admin harakatini log qilish"""
-        log_entry = {
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'action': action,
-            'admin_id': admin_id,
-            'details': details
-        }
-        self.data['admin_logs'].append(log_entry)
-        if len(self.data['admin_logs']) > 100:
-            self.data['admin_logs'] = self.data['admin_logs'][-100:]
-        self.save_data()
 
 # 🌐 GLOBAL BOT INSTANCE
 bot = PremiumGiveawayBot()
@@ -261,7 +249,7 @@ async def strict_channel_check(update: Update, context: ContextTypes.DEFAULT_TYP
         if not bot.config['strict_channel_check']:
             return True
             
-        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
+        member = await context.bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
         
         if member.status in ['member', 'administrator', 'creator']:
             return True
@@ -541,7 +529,6 @@ async def user_stats(query, context):
     
     # 📈 Progress barlar
     referral_progress = min(100, (user_data.get('referrals', 0) / 10) * 100)
-    level_progress = min(100, (user_data.get('points', 0) % 1000) / 10)
     
     stats_text = f"""
 📊 *SHAXSIY STATISTIKA PANELI*
@@ -1004,16 +991,9 @@ async def admin_stats_command(query, context):
 ├ 💰 Jami sovg'alar: *{stats['total_prizes']:,} so'm*
 ├ 📅 So'nggi qur'a: *{stats['last_draw'] or 'Hali o\'tkazilmagan'}*
 └ 🎫 Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)} ta*
-
-📊 *FAOLLIK STATISTIKASI:*
-┌ 📅 Kunlik o'rtacha: *{active_today} ta*
-├ 📈 Haftalik o'sish: *24.5%*
-├ 📊 O'rtacha session: *3.2 daqiqa*
-└ 🔄 Chiqish darajasi: *12.3%*
 """
     
     keyboard = [
-        [InlineKeyboardButton("📈 Batafsil statistika", callback_data='admin_detailed_stats')],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1070,8 +1050,6 @@ async def admin_users_panel(query, context):
         text += f"{i}. *{data['full_name'][:15]}* - {data['referrals']} ta taklif\n"
     
     keyboard = [
-        [InlineKeyboardButton("🔍 Qidirish", callback_data='admin_search_user')],
-        [InlineKeyboardButton("📋 Ro'yxat", callback_data='admin_all_users')],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1095,7 +1073,6 @@ async def admin_settings_panel(query, context):
         text += f"├ {bot.config['bonus_referrals'][i]} ta = +{bot.config['bonus_points'][i]} ball\n"
     
     keyboard = [
-        [InlineKeyboardButton("✏️ Tahrirlash", callback_data='admin_edit_settings')],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1354,17 +1331,9 @@ async def admin_user_info_command(update: Update, context: ContextTypes.DEFAULT_
 ├ 🔔 Bildirishnomalar: *{'✅ Yoqilgan' if user_data['notifications'] else '❌ O\'chirilgan'}*
 ├ ⚠️ Ogohlantirishlar: *{user_data['warnings']} ta*
 └ 🏆 Daraja: *{user_data.get('rank', 'beginner').capitalize()}*
-
-🔗 *REFERALLAR:* {len(bot.data['referrals'].get(target_id, []))} ta
-📋 *YUTUQLAR:* {len(user_data['achievements'])} ta
 """
     
     keyboard = [
-        [
-            InlineKeyboardButton("⚠️ Ogohlantirish", callback_data=f'warn_{target_id}'),
-            InlineKeyboardButton(f"{'✅ Blokni ochish' if user_data['banned'] else '🚫 Bloklash'}", 
-                               callback_data=f'ban_{target_id}')
-        ],
         [InlineKeyboardButton("🔙 Admin panel", callback_data='admin_dashboard')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1479,10 +1448,6 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 ├ Ishtirokchilar: *{sum(1 for u in bot.data['users'].values() if u['referrals'] >= 10)} ta*
 └ O'rtacha sovg'a: *{stats['total_prizes'] / max(1, stats['total_winners']):,.0f} so'm*
 
-📊 *HARAKAT STATISTIKASI:*
-├ Jami takliflar: *{stats['total_referrals']} ta*
-└ Eng faol kun: *Hisoblanmoqda...*
-
 💰 *MOLIYAVIY STATISTIKA:*
 ├ Jami ajratilgan summa: *{stats['total_prizes']:,} so'm*
 ├ O'rtacha mukofot: *{stats['total_prizes'] / max(1, len(bot.data['winners_history']) * 3):,.0f} so'm*
@@ -1500,7 +1465,7 @@ async def admin_stats_full_command(update: Update, context: ContextTypes.DEFAULT
 # 🏃‍♂️ ASOSIY FUNKSIYA
 def main():
     """🚀 Asosiy funksiya"""
-    TOKEN = "7321012980:AAFoMhRMMLXdInH1e3WLowY7KgZrMDe-0Ks"
+    TOKEN = bot.config['bot_token']
     
     # Botni yaratish
     application = Application.builder().token(TOKEN).build()
@@ -1536,7 +1501,23 @@ def main():
         print(f"{prize['emoji']} {prize['place']}-o'rin: {prize['amount']:,} so'm")
     print("="*60 + "\n")
     
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Oldingi botlarni to'liq yopish
+    print("🔄 Oldingi sessiyalar tozalanmoqda...")
+    try:
+        import subprocess
+        import sys
+        
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/f", "/im", "python.exe"], 
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["pkill", "-f", "python"], 
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except:
+        pass
+    
+    print("✅ Bot to'liq ishga tushdi!")
+    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
