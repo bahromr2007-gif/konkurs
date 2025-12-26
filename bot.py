@@ -593,7 +593,7 @@ async def user_profile(query, context):
     }
     
     profile_text = f"""
-👤 *SHASSIY PROFIL*
+  *SHASSIY PROFIL*
 
 {rank_emojis.get(user_data.get('rank', 'beginner'), '👤')} *{user_data.get('full_name', query.from_user.first_name)}*
 
@@ -1540,4 +1540,5 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
